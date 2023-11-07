@@ -50,6 +50,10 @@ class Model:
         # Convert labels to integers
         self.labels = np.where(self.labels == 'healthy', 0, 1)
 
+        split_idx = int(0.8 * len(self.images))
+        self.train_images, self.val_images = self.images[:split_idx], self.images[split_idx:]
+        self.train_labels, self.val_labels = self.labels[:split_idx], self.labels[split_idx:]
+
         self.model = tf.keras.Sequential([
             tf.keras.layers.Conv2D(64, (3,3), activation='relu', input_shape=(96, 96, 3)),
             tf.keras.layers.MaxPooling2D(2, 2),
@@ -67,14 +71,16 @@ class Model:
             tf.keras.layers.Dropout(0.5),
             #512 neuron hidden layer
             tf.keras.layers.Dense(512, activation='relu'),
-            tf.keras.layers.Dense(3, activation='softmax')
+            tf.keras.layers.Dense(2, activation='softmax')
         ])
+
         
         # Compile the model
-        self.model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
+        self.model.compile(optimizer='rmsprop', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
 
         # Train the model
-        self.model.fit(self.images, epochs=25, steps_per_epoch=20, validation_data = self.labels, verbose = 1, validation_steps=3)
+        self.model.fit(self.train_images, self.train_labels, epochs=25, steps_per_epoch=20, 
+                    validation_data=(self.val_images, self.val_labels), verbose=1, validation_steps=3)
 
         # Save the weights
         #self.model.save_weights('path_to_save_weights.h5')
@@ -94,9 +100,8 @@ class Model:
         Returns:
             predicted classes as 1-dimensional tensor of shape [BS]
         '''
-        # Load the weights
-        self.model.load_weights('path_to_save_weights.h5')
         # Predict
+        self.model = tf.keras.models.load_model('modellen')
         predictions = self.model.predict(X)
         return tf.argmax(predictions, axis=1)
 
@@ -105,11 +110,12 @@ if __name__ == "__main__":
     result = m.predict(m.images)
     #print out the first 10 predictions
     for i in range(10):
-        print("Modellen:")
-        print(result[i])
-        print("Fasit:")
-        print(m.labels[i])
+        if str(result[i].numpy()) != str(m.labels[i]):
+            print("Modellen:")
+            print(result[i].numpy())
+            print("Fasit:")
+            print(m.labels[i])
 
     #print out the accuracy
     print("Accuracy:")
-    print(np.mean(result == m.labels), "of " , len(m.labels), "correct")
+    print(np.mean(result == m.labels), "% of " , len(m.labels), "correct")
