@@ -1,0 +1,4 @@
+*.zip
+
+*/SubmissionModel/*
+ToySubmission/*.npz
