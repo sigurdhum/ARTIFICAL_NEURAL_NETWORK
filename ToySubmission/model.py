@@ -102,7 +102,7 @@ class Model:
             predicted classes as 1-dimensional tensor of shape [BS]
         '''
         # Predict
-        self.model = tf.keras.models.load_model('modellen')
+        self.model = tf.keras.models.load_model('/LEVERINGSMAPPE/modellen')
         predictions = self.model.predict(X)
         return tf.argmax(predictions, axis=1)
 
