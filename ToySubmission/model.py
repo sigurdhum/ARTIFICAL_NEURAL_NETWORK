@@ -76,11 +76,12 @@ class Model:
 
         
         # Compile the model
-        self.model.compile(optimizer='rmsprop', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+        self.model.compile(optimizer='adam',
+              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+              metrics=['accuracy'])
 
         # Train the model
-        self.model.fit(self.train_images, self.train_labels, epochs=25, steps_per_epoch=20, 
-                    validation_data=(self.val_images, self.val_labels), verbose=1, validation_steps=3)
+        self.model.fit(self.images, self.labels, epochs=25, verbose = 1)
 
         # Save the weights
         #self.model.save_weights('path_to_save_weights.h5')
