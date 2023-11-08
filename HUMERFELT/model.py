@@ -44,6 +44,7 @@ The output must be the PREDICTED CLASSES and not the class probability
 
 class Model:
     def __init__(self, path):
+
         dataset = np.load(os.path.join(path, 'public_data.npz'), allow_pickle=True)
         self.images, self.labels = dataset['data'], dataset['labels']
         
@@ -87,7 +88,8 @@ class Model:
         #self.model.save_weights('path_to_save_weights.h5')
 
         #Save the model
-        self.model.save('modellen') 
+        self.model.save(path + "LEVERINGSMAPPE/" + 'modellen')
+        self.modelpath = path + "LEVERINGSMAPPE/" + 'modellen' 
 
     def predict(self, X):
         '''
@@ -102,12 +104,12 @@ class Model:
             predicted classes as 1-dimensional tensor of shape [BS]
         '''
         # Predict
-        self.model = tf.keras.models.load_model('/LEVERINGSMAPPE/modellen')
+        self.model = tf.keras.models.load_model(self.modelpath)
         predictions = self.model.predict(X)
         return tf.argmax(predictions, axis=1)
 
 if __name__ == "__main__":
-    m = Model("")
+    m = Model("../")
     result = m.predict(m.images)
     #print out the first 10 predictions
     for i in range(10):
