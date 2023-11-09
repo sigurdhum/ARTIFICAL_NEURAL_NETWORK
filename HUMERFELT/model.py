@@ -1,6 +1,7 @@
 import os
 import tensorflow as tf
 import numpy as np
+import matplotlib.pyplot as plt
 
 '''
 
@@ -40,20 +41,43 @@ the result of the interence.
 The output must be the PREDICTED CLASSES and not the class probability
 '''
 
+def show_images(images, labels):
+    for y in range(len(images) // 25):
+            plt.title("Pictures")
+            for x in range(25):
+                plt.subplot(5, 5, x + 1)
+                plt.xticks([])
+                plt.yticks([])
+                plt.grid(False)
+                plt.imshow(images[x + y * 25].astype('uint8'))
+                plt.xlabel(str(x + y * 25) + " " + labels[x + y * 25])
+            plt.show()
 
 
 class Model:
     def __init__(self, path):
-
+        #Model should have 3 classes, healthy, unhealthy and unknown
         dataset = np.load(os.path.join(path, 'public_data.npz'), allow_pickle=True)
         self.images, self.labels = dataset['data'], dataset['labels']
-        
-        # Convert labels to integers
-        self.labels = np.where(self.labels == 'healthy', 0, 1)
 
-        split_idx = int(0.8 * len(self.images))
-        self.train_images, self.val_images = self.images[:split_idx], self.images[split_idx:]
-        self.train_labels, self.val_labels = self.labels[:split_idx], self.labels[split_idx:]
+        
+        
+        unknownIDs_some = [58, 94, 95, 137, 138, 171, 207, 338, 412, 434, 486, 506, 429, 516, 571, 599, 622, 658]
+
+        #have the unknowns in the dataset into a seperate array
+        unknowns = []
+        unknownIDs = []
+        deleted = 0
+        for i in range(len(unknownIDs_some)):
+            unknowns.append(self.images[unknownIDs_some[i]-deleted])
+            unknownIDs.append(self.labels[unknownIDs_some[i]-deleted])
+            self.images = np.delete(self.images, unknownIDs_some[i]-deleted, 0)
+            self.labels = np.delete(self.labels, unknownIDs_some[i]-deleted, 0)
+            deleted += 1
+
+        #show_images(self.images, self.labels)
+
+        train_unknown_dataset = tf.data.Dataset.from_tensor_slices((unknowns, unknownIDs))
 
         self.model = tf.keras.Sequential([
             tf.keras.layers.Conv2D(64, (3,3), activation='relu', input_shape=(96, 96, 3)),
@@ -109,7 +133,7 @@ class Model:
         return tf.argmax(predictions, axis=1)
 
 if __name__ == "__main__":
-    m = Model("../")
+    m = Model("")
     result = m.predict(m.images)
     #print out the first 10 predictions
     for i in range(10):
