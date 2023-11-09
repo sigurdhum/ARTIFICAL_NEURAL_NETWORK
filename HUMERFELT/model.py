@@ -79,41 +79,20 @@ class Model:
 
         train_unknown_dataset = tf.data.Dataset.from_tensor_slices((unknowns, unknownIDs))
 
-        self.model = tf.keras.Sequential([
-            tf.keras.layers.Conv2D(64, (3,3), activation='relu', input_shape=(96, 96, 3)),
-            tf.keras.layers.MaxPooling2D(2, 2),
-            #second convolution
-            tf.keras.layers.Conv2D(64, (3,3), activation='relu'),
-            tf.keras.layers.MaxPooling2D(2,2),
-            #third convolution
-            tf.keras.layers.Conv2D(128, (3,3), activation='relu'),
-            tf.keras.layers.MaxPooling2D(2,2),
-            #fourth convolution
-            tf.keras.layers.Conv2D(128, (3,3), activation='relu'),
-            tf.keras.layers.MaxPooling2D(2,2),
-            #flatten the results to feed into a DNN
-            tf.keras.layers.Flatten(),
-            tf.keras.layers.Dropout(0.5),
-            #512 neuron hidden layer
-            tf.keras.layers.Dense(512, activation='relu'),
-            tf.keras.layers.Dense(2, activation='softmax')
+        model = tf.keras.Sequential([
+            tf.keras.layers.Flatten(input_shape=(96, 96)),
+            tf.keras.layers.Dense(128, activation='relu'),
+            tf.keras.layers.Dense(10)
         ])
 
+        model.compile(optimizer=tf.keras.optimizers.RMSprop(),
+                    loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                    metrics=['sparse_categorical_accuracy'])
+
+        model.fit(train_unknown_dataset, epochs=10)
         
-        # Compile the model
-        self.model.compile(optimizer='adam',
-              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-              metrics=['accuracy'])
 
-        # Train the model
-        self.model.fit(self.images, self.labels, epochs=25, verbose = 1)
 
-        # Save the weights
-        #self.model.save_weights('path_to_save_weights.h5')
-
-        #Save the model
-        self.model.save(path + "LEVERINGSMAPPE/" + 'modellen')
-        self.modelpath = path + "LEVERINGSMAPPE/" + 'modellen' 
 
     def predict(self, X):
         '''
