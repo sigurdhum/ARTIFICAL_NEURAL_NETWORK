@@ -1,4 +1,7 @@
+
+from datetime import datetime
 import os
+from sqlite3 import Date
 import tensorflow as tf
 import numpy as np
 import matplotlib
@@ -67,7 +70,7 @@ class Model:
 
 
         #delete the unwanted images
-        #self.images, self.labels = self.delete_unwanted(self.images, self.labels, unknownIDs_some)
+        self.images, self.labels = self.delete_unwanted(self.images, self.labels, unknownIDs_some)
 
         #show_images(self.images, self.labels)
 
@@ -95,7 +98,9 @@ class Model:
             tf.keras.layers.Dense(512, activation='relu'),
             tf.keras.layers.Dense(2, activation='softmax')
         ])
-        
+        # Define model layers
+
+
         # Compile the model
         self.model.compile(optimizer='adam',
               loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -106,8 +111,11 @@ class Model:
         #self.model.save_weights('path_to_save_weights.h5')
 
         #Save the model
-        self.model.save(path + "LEVERINGSMAPPE/" + 'modellenCL')
-        self.modelpath = path + "LEVERINGSMAPPE/" + 'modellenCL' 
+        
+        now = datetime.now()
+        pathen = path + "LEVERINGSMAPPE/" + 'modellenCL'+ now.strftime("%H_%M_%S_%d_%m_%Y")
+        self.model.save(pathen)
+        self.modelpath = pathen 
 
         
     def delete_unwanted(self, images, labels, unwanted: list):
@@ -165,6 +173,14 @@ if __name__ == "__main__":
     result = m.predict(m.images)
     
     
-    for i in range(0, 10):
-        #print the prediction precentage
-        print(i, str(result[i]))
+    #print out the first 10 predictions
+    for i in range(10):
+        if str(result[i].numpy()) != str(m.labels[i]):
+            print("Modellen:")
+            print(result[i].numpy())
+            print("Fasit:")
+            print(m.labels[i])
+
+    #print out the accuracy
+    print("Accuracy:")
+    print(np.mean(result == m.labels), "% of " , len(m.labels), "correct")
