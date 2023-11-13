@@ -3,9 +3,10 @@ import tensorflow as tf
 
 class model:
     def __init__(self, path):
-        self.model = tf.keras.models.load_model(os.path.join(path, 'modellen'))
+        self.model = tf.keras.models.load_model(os.path.join(path, 'modellenCL'))
 
     def predict(self, X):
+        print(X)
         
         # Note: this is just an example.
         # Here the model.predict is called, followed by the argmax

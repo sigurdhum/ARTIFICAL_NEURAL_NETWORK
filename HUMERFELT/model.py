@@ -1,6 +1,7 @@
 import os
 import tensorflow as tf
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 
 '''
@@ -50,47 +51,94 @@ def show_images(images, labels):
                 plt.yticks([])
                 plt.grid(False)
                 plt.imshow(images[x + y * 25].astype('uint8'))
-                plt.xlabel(str(x + y * 25) + " " + labels[x + y * 25])
+                plt.xlabel(str(x + y * 25) + " " + str(labels[x + y * 25]))
             plt.show()
 
 
 class Model:
     def __init__(self, path):
         #Model should have 3 classes, healthy, unhealthy and unknown
-        dataset = np.load(os.path.join(path, 'public_data.npz'), allow_pickle=True)
+        dataset = np.load(os.path.join('../public_data.npz'), allow_pickle=True)
         self.images, self.labels = dataset['data'], dataset['labels']
 
         
         
         unknownIDs_some = [58, 94, 95, 137, 138, 171, 207, 338, 412, 434, 486, 506, 429, 516, 571, 599, 622, 658]
 
-        #have the unknowns in the dataset into a seperate array
-        unknowns = []
-        unknownIDs = []
-        deleted = 0
-        for i in range(len(unknownIDs_some)):
-            unknowns.append(self.images[unknownIDs_some[i]-deleted])
-            unknownIDs.append(self.labels[unknownIDs_some[i]-deleted])
-            self.images = np.delete(self.images, unknownIDs_some[i]-deleted, 0)
-            self.labels = np.delete(self.labels, unknownIDs_some[i]-deleted, 0)
-            deleted += 1
+
+        #delete the unwanted images
+        #self.images, self.labels = self.delete_unwanted(self.images, self.labels, unknownIDs_some)
 
         #show_images(self.images, self.labels)
 
-        train_unknown_dataset = tf.data.Dataset.from_tensor_slices((unknowns, unknownIDs))
-
-        model = tf.keras.Sequential([
-            tf.keras.layers.Flatten(input_shape=(96, 96)),
-            tf.keras.layers.Dense(128, activation='relu'),
-            tf.keras.layers.Dense(10)
+        # Convert labels to integers
+        self.labels = np.where(self.labels == 'healthy', 1, 0)
+        split_idx = int(0.8 * len(self.images))
+        self.train_images, self.val_images = self.images[:split_idx], self.images[split_idx:]
+        self.train_labels, self.val_labels = self.labels[:split_idx], self.labels[split_idx:]
+        self.model = tf.keras.Sequential([
+            tf.keras.layers.Conv2D(64, (3,3), activation='relu', input_shape=(96, 96, 3)),
+            tf.keras.layers.MaxPooling2D(2, 2),
+            #second convolution
+            tf.keras.layers.Conv2D(64, (3,3), activation='relu'),
+            tf.keras.layers.MaxPooling2D(2,2),
+            #third convolution
+            tf.keras.layers.Conv2D(128, (3,3), activation='relu'),
+            tf.keras.layers.MaxPooling2D(2,2),
+            #fourth convolution
+            tf.keras.layers.Conv2D(128, (3,3), activation='relu'),
+            tf.keras.layers.MaxPooling2D(2,2),
+            #flatten the results to feed into a DNN
+            tf.keras.layers.Flatten(),
+            tf.keras.layers.Dropout(0.5),
+            #512 neuron hidden layer
+            tf.keras.layers.Dense(512, activation='relu'),
+            tf.keras.layers.Dense(2, activation='softmax')
         ])
-
-        model.compile(optimizer=tf.keras.optimizers.RMSprop(),
-                    loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-                    metrics=['sparse_categorical_accuracy'])
-
-        model.fit(train_unknown_dataset, epochs=10)
         
+        # Compile the model
+        self.model.compile(optimizer='adam',
+              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+              metrics=['accuracy'])
+        # Train the model
+        self.model.fit(self.images, self.labels, epochs=25, verbose = 1)
+        # Save the weights
+        #self.model.save_weights('path_to_save_weights.h5')
+
+        #Save the model
+        self.model.save(path + "LEVERINGSMAPPE/" + 'modellenCL')
+        self.modelpath = path + "LEVERINGSMAPPE/" + 'modellenCL' 
+
+        
+    def delete_unwanted(self, images, labels, unwanted: list):
+        #have the unknowns in the dataset into a seperate array
+        unknowns = []
+        unknownLabels = []
+        deleted = 0
+        for i in range(len(unwanted)):
+            #get the image
+            
+            #if the image is in the unknowns, dont add it to the unknowns
+            if not any(np.array_equal(images[unwanted[i]-deleted], unknown) for unknown in unknowns):
+                blacklistedImage = images[unwanted[i]-deleted]
+                unknowns.append(blacklistedImage)
+                blacklistedLabel = labels[unwanted[i]-deleted]
+                unknownLabels.append(blacklistedLabel)
+
+            images = np.delete(images, unwanted[i]-deleted, 0)
+            labels = np.delete(labels, unwanted[i]-deleted, 0)
+            deleted += 1
+
+        deleted = 0
+        for i in range(len(images)):
+            index = i - deleted
+            if any(np.array_equal(images[index], unknown) for unknown in unknowns):
+                images = np.delete(images, index, 0)
+                labels = np.delete(labels, index, 0)
+                deleted += 1
+        print("Deleted: ", deleted, "images")
+        #show_images(images, labels)
+        return images, labels
 
 
 
@@ -107,21 +155,16 @@ class Model:
             predicted classes as 1-dimensional tensor of shape [BS]
         '''
         # Predict
+
         self.model = tf.keras.models.load_model(self.modelpath)
         predictions = self.model.predict(X)
         return tf.argmax(predictions, axis=1)
 
 if __name__ == "__main__":
-    m = Model("")
+    m = Model("../")
     result = m.predict(m.images)
-    #print out the first 10 predictions
-    for i in range(10):
-        if str(result[i].numpy()) != str(m.labels[i]):
-            print("Modellen:")
-            print(result[i].numpy())
-            print("Fasit:")
-            print(m.labels[i])
-
-    #print out the accuracy
-    print("Accuracy:")
-    print(np.mean(result == m.labels), "% of " , len(m.labels), "correct")
+    
+    
+    for i in range(0, 10):
+        #print the prediction precentage
+        print(i, str(result[i]))
