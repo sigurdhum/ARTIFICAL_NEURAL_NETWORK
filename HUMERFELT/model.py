@@ -1,10 +1,6 @@
-
-from datetime import datetime
 import os
-from sqlite3 import Date
 import tensorflow as tf
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
 
 '''
@@ -45,79 +41,164 @@ the result of the interence.
 The output must be the PREDICTED CLASSES and not the class probability
 '''
 
-def show_images(images, labels):
-    for y in range(len(images) // 25):
+def show_images(images, labels, number = 25):
+    for y in range(len(images) // number):
             plt.title("Pictures")
-            for x in range(25):
+            for x in range(number):
                 plt.subplot(5, 5, x + 1)
                 plt.xticks([])
                 plt.yticks([])
                 plt.grid(False)
-                plt.imshow(images[x + y * 25].astype('uint8'))
-                plt.xlabel(str(x + y * 25) + " " + str(labels[x + y * 25]))
+                plt.imshow(images[x + y * number].astype('uint8'))
+                plt.xlabel(str(x + y * number) + " " + labels[x + y * number])
             plt.show()
 
 
 class Model:
     def __init__(self, path):
         #Model should have 3 classes, healthy, unhealthy and unknown
-        dataset = np.load(os.path.join('../public_data.npz'), allow_pickle=True)
+        dataset = np.load(os.path.join(path, 'public_data.npz'), allow_pickle=True)
         self.images, self.labels = dataset['data'], dataset['labels']
-
         
+        unknownIDs_some = [58, 338]
+
+
+        # See the distribution of the data in the dataset before and after deleting the unknowns
+        #self.pie_chart_labels(self.labels)
+        self.images, self.labels =self.delete_unwanted(self.images, self.labels, unknownIDs_some)
+        #self.pie_chart_labels(self.labels)
+
+        self.labels = np.where(self.labels == 'healthy', 0, 1)
+
+        split_idx = int(0.8 * len(self.images)) #TODO, make it a 50/50 split of healthy and unhealthy in both train and test
         
-        unknownIDs_some = [58, 94, 95, 137, 138, 171, 207, 338, 412, 434, 486, 506, 429, 516, 571, 599, 622, 658]
+        self.train_images, self.test_images = self.images[:split_idx], self.images[split_idx:]
+        self.train_labels, self.test_labels = self.labels[:split_idx], self.labels[split_idx:]
+        self.set_of_images = np.unique(self.images)
 
-
-        #delete the unwanted images
-        self.images, self.labels = self.delete_unwanted(self.images, self.labels, unknownIDs_some)
-
-        #show_images(self.images, self.labels)
-
-        # Convert labels to integers
-        self.labels = np.where(self.labels == 'healthy', 1, 0)
-        split_idx = int(0.8 * len(self.images))
-        self.train_images, self.val_images = self.images[:split_idx], self.images[split_idx:]
-        self.train_labels, self.val_labels = self.labels[:split_idx], self.labels[split_idx:]
+        #self.make_model(self, path)
+    def labels_for_unique(self, images, labels):
+        unique_images, unique_indices = np.unique(images, axis=0, return_index=True)
+        unique_labels = labels[unique_indices]
+        print("antall unike labels:", len(unique_labels))
+        print("antall unike bilder:", len(unique_images))
+        for i in range(len(unique_labels[:20])):
+            print(unique_labels[i])
+        return unique_images, unique_labels
+        
+    def make_model(self, path):
         self.model = tf.keras.Sequential([
-            tf.keras.layers.Conv2D(64, (3,3), activation='relu', input_shape=(96, 96, 3)),
+            #first convolution
+            tf.keras.layers.Conv2D(16, (3,3), activation='relu', input_shape=(96, 96, 3), padding='same'),
+            #normalize the data
+            tf.keras.layers.BatchNormalization(),
+            #maxpooling layer
             tf.keras.layers.MaxPooling2D(2, 2),
+            
             #second convolution
-            tf.keras.layers.Conv2D(64, (3,3), activation='relu'),
-            tf.keras.layers.MaxPooling2D(2,2),
+            tf.keras.layers.Conv2D(32, (3,3), activation='relu', input_shape=(96, 96, 3), padding='same'),
+            #normalize the data
+            tf.keras.layers.BatchNormalization(),
+            #maxpooling layer
+            tf.keras.layers.MaxPooling2D(2, 2),
+
             #third convolution
-            tf.keras.layers.Conv2D(128, (3,3), activation='relu'),
-            tf.keras.layers.MaxPooling2D(2,2),
+            tf.keras.layers.Conv2D(64, (3,3), activation='relu', input_shape=(96, 96, 3), padding='same'),
+            #normalize the data
+            tf.keras.layers.BatchNormalization(),
+            #maxpooling layer
+            tf.keras.layers.MaxPooling2D(2, 2),
+            
             #fourth convolution
-            tf.keras.layers.Conv2D(128, (3,3), activation='relu'),
-            tf.keras.layers.MaxPooling2D(2,2),
-            #flatten the results to feed into a DNN
+            tf.keras.layers.Conv2D(128, (3,3), activation='relu', input_shape=(96, 96, 3), padding='same'),
+            #normalize the data
+            tf.keras.layers.BatchNormalization(),
+            #maxpooling layer
+            tf.keras.layers.MaxPooling2D(2, 2),
+            
+            #fifth convolution
+            tf.keras.layers.Conv2D(256, (3,3), activation='relu', input_shape=(96, 96, 3), padding='same'),
+            #normalize the data
+            tf.keras.layers.BatchNormalization(),
+            #maxpooling layer
+            tf.keras.layers.MaxPooling2D(2, 2),
+
+            #sixth convolution
+            tf.keras.layers.Conv2D(512, (3,3), activation='relu', input_shape=(96, 96, 3), padding='same'),
+            #normalize the data
+            tf.keras.layers.BatchNormalization(),
+            #maxpooling layer
+            tf.keras.layers.MaxPooling2D(2, 2),
+
+            #flatten the data
             tf.keras.layers.Flatten(),
-            tf.keras.layers.Dropout(0.5),
-            #512 neuron hidden layer
+
+            #dense layer
             tf.keras.layers.Dense(512, activation='relu'),
+            #dropout layer
+            tf.keras.layers.Dropout(0.1),
+
+            #dense layer
+            tf.keras.layers.Dense(256, activation='relu'),
+            #dropout layer
+            tf.keras.layers.Dropout(0.1),
+
+            #dense layer
+            tf.keras.layers.Dense(128, activation='relu'),
+            #dropout layer
+            tf.keras.layers.Dropout(0.5),
+
+            #output layer
             tf.keras.layers.Dense(2, activation='softmax')
         ])
-        # Define model layers
 
-
+        
         # Compile the model
-        self.model.compile(optimizer='adam',
-              loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-              metrics=['accuracy'])
-        # Train the model
-        self.model.fit(self.images, self.labels, epochs=25, verbose = 1)
+        self.model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001), 
+            loss=tf.keras.losses.SparseCategoricalCrossentropy(),
+            metrics=['accuracy']
+        )
+        
+        checkpoint_path = path + "LEVERINGSMAPPE/" + "training_1"
+        checkpointer = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path, verbose=1, save_best_only=True)
+
+        #early stopping
+        early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, min_delta=1e-12, restore_best_weights=True)
+
+        #Lr reducer
+        lr_reducer = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=2, min_lr=1e-7, verbose=1)
+
+        #callbacks
+        callbacks = [checkpointer, early_stopping, lr_reducer]
+
+        self.model.fit(x=self.train_images, y=self.train_labels, validation_data=(self.test_images, self.test_labels), epochs=25, callbacks=callbacks, verbose=1)
+
+
+        #self.model.fit(self.images, self.labels, epochs=25, verbose = 1)
+
         # Save the weights
         #self.model.save_weights('path_to_save_weights.h5')
 
         #Save the model
-        
-        now = datetime.now()
-        pathen = path + "LEVERINGSMAPPE/" + 'modellenCL'+ now.strftime("%H_%M_%S_%d_%m_%Y")
-        self.model.save(pathen)
-        self.modelpath = pathen 
+        self.model.save(path + "LEVERINGSMAPPE/" + 'modellenV4')
+        self.modelpath = path + "LEVERINGSMAPPE/" + 'modellenV4'
 
-        
+    
+    def pie_chart_labels(self, labels):
+        #pie chart
+        unique, counts = np.unique(labels, return_counts=True)
+        plt.pie(counts, labels=unique + " "+ str(counts), autopct='%1.1f%%')
+
+        plt.show()
+    
+    def pie_chart_of_images(self, images):
+        #pie chart
+        for i in range(10):
+            unique, counts = np.unique(images[i:i+10], return_counts=True)
+            plt.pie(counts, labels=unique, autopct='%1.1f%%')
+            plt.show()
+
     def delete_unwanted(self, images, labels, unwanted: list):
         #have the unknowns in the dataset into a seperate array
         unknowns = []
@@ -136,6 +217,9 @@ class Model:
             images = np.delete(images, unwanted[i]-deleted, 0)
             labels = np.delete(labels, unwanted[i]-deleted, 0)
             deleted += 1
+        
+        print("Deleted: ", len(unknowns), unknowns[0])
+        #show_images(unknowns, unknownLabels, number=max(len(unknowns), 25))
 
         deleted = 0
         for i in range(len(images)):
@@ -145,10 +229,9 @@ class Model:
                 labels = np.delete(labels, index, 0)
                 deleted += 1
         print("Deleted: ", deleted, "images")
-        #show_images(images, labels)
+        images = np.unique(images)
+
         return images, labels
-
-
 
     def predict(self, X):
         '''
@@ -163,24 +246,22 @@ class Model:
             predicted classes as 1-dimensional tensor of shape [BS]
         '''
         # Predict
-
         self.model = tf.keras.models.load_model(self.modelpath)
         predictions = self.model.predict(X)
         return tf.argmax(predictions, axis=1)
 
 if __name__ == "__main__":
     m = Model("../")
+    
+    """
+    
+    m.make_model("../")
     result = m.predict(m.images)
-    
-    
     #print out the first 10 predictions
     for i in range(10):
-        if str(result[i].numpy()) != str(m.labels[i]):
-            print("Modellen:")
-            print(result[i].numpy())
-            print("Fasit:")
-            print(m.labels[i])
+        print(str(int(result[i].numpy() == m.labels[i])), "Modellen:", result[i].numpy(), "Label:", m.labels[i], "Index:", i)
 
     #print out the accuracy
     print("Accuracy:")
     print(np.mean(result == m.labels), "% of " , len(m.labels), "correct")
+    """
