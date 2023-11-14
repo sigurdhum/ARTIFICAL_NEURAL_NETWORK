@@ -64,26 +64,33 @@ class Model:
 
 
         # See the distribution of the data in the dataset before and after deleting the unknowns
-        #self.pie_chart_labels(self.labels)
+        self.pie_chart_labels(self.labels)
         self.images, self.labels =self.delete_unwanted(self.images, self.labels, unknownIDs_some)
         #self.pie_chart_labels(self.labels)
 
         self.labels = np.where(self.labels == 'healthy', 0, 1)
+        
+        self.images, self.labels = self.uniques(self.images, self.labels)
+        
+        self.pie_chart_labels(self.labels)
 
         split_idx = int(0.8 * len(self.images)) #TODO, make it a 50/50 split of healthy and unhealthy in both train and test
         
         self.train_images, self.test_images = self.images[:split_idx], self.images[split_idx:]
         self.train_labels, self.test_labels = self.labels[:split_idx], self.labels[split_idx:]
-        self.set_of_images = np.unique(self.images)
+
+        self.make_model(path)
 
         #self.make_model(self, path)
-    def labels_for_unique(self, images, labels):
+    def uniques(self, images, labels):
         unique_images, unique_indices = np.unique(images, axis=0, return_index=True)
         unique_labels = labels[unique_indices]
+        """
         print("antall unike labels:", len(unique_labels))
         print("antall unike bilder:", len(unique_images))
         for i in range(len(unique_labels[:20])):
             print(unique_labels[i])
+        """
         return unique_images, unique_labels
         
     def make_model(self, path):
@@ -188,7 +195,9 @@ class Model:
     def pie_chart_labels(self, labels):
         #pie chart
         unique, counts = np.unique(labels, return_counts=True)
-        plt.pie(counts, labels=unique + " "+ str(counts), autopct='%1.1f%%')
+        unique = np.where(unique == 0, "healthy", "unhealthy")
+        plt.pie(counts, labels=unique, autopct='%1.1f%%')
+        plt.title("Labels " + str(len(labels)))
 
         plt.show()
     
@@ -218,7 +227,7 @@ class Model:
             labels = np.delete(labels, unwanted[i]-deleted, 0)
             deleted += 1
         
-        print("Deleted: ", len(unknowns), unknowns[0])
+        print("Deleted: ", len(unknowns))
         #show_images(unknowns, unknownLabels, number=max(len(unknowns), 25))
 
         deleted = 0
