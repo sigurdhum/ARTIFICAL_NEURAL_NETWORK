@@ -2,6 +2,7 @@ import os
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy import ndimage
 
 '''
 
@@ -75,18 +76,34 @@ class Model:
         
         self.labels = np.where(self.labels == 'healthy', 0, 1)
         
-        self.pie_chart_labels(self.labels)
+        #self.pie_chart_labels(self.labels)
 
         split_idx = int(0.8 * len(self.images)) #TODO, make it a 50/50 split of healthy and unhealthy in both train and test
         
         self.train_images, self.test_images = self.images[:split_idx], self.images[split_idx:]
         self.train_labels, self.test_labels = self.labels[:split_idx], self.labels[split_idx:]
 
-        self.pie_chart_labels(self.train_labels)
-        self.pie_chart_labels(self.test_labels)
+        self.train_images = self.apply_data_augmentation(self.train_images)
+
+        #self.pie_chart_labels(self.train_labels)
+        #self.pie_chart_labels(self.test_labels)
         self.make_model(path)
 
         #self.make_model(self, path)
+    
+    def apply_data_augmentation(self, images):
+        augmented_images = []
+        for image in images:
+            # Random rotation (between -20 and 20 degrees)
+            rotated_image = ndimage.rotate(image, np.random.uniform(-20, 20), reshape=False)
+            
+            # Random horizontal flip
+            if np.random.rand() > 0.5:
+                rotated_image = np.fliplr(rotated_image)
+            
+            augmented_images.append(rotated_image)
+
+        return np.array(augmented_images)
 
     def uniques(self, images, labels):
         unique_images, unique_indices = np.unique(images, return_index=True, axis=0)
@@ -140,35 +157,48 @@ class Model:
             #flatten the data
             tf.keras.layers.Flatten(),
 
-            #dense layer
-            tf.keras.layers.Dense(512, activation='relu'),
-            #dropout layer
+            #dense layer and dropout
+            tf.keras.layers.Dense(512, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
             tf.keras.layers.Dropout(0.1),
 
-            #dense layer
-            tf.keras.layers.Dense(256, activation='relu'),
-            #dropout layer
-            tf.keras.layers.Dropout(0.1),
+            #dense layer and dropout
+            tf.keras.layers.Dense(256, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
+            tf.keras.layers.Dropout(0.2),
+
+            #dense layer and dropout
+            tf.keras.layers.Dense(128, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
+            tf.keras.layers.Dropout(0.3),
 
             #dense layer
-            tf.keras.layers.Dense(128, activation='relu'),
-            #dropout layer
-            tf.keras.layers.Dropout(0.5),
+            tf.keras.layers.Dense(128, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
+            tf.keras.layers.Dropout(0.2),
+
+            # Dense layer with 64 neurons and dropout
+            tf.keras.layers.Dense(64, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
+            tf.keras.layers.Dropout(0.3),
 
             #output layer
             tf.keras.layers.Dense(2, activation='softmax')
         ])
 
-        
+        total_samples = len(self.labels)
+        healthy_samples = np.sum(self.labels == 0)
+        unhealthy_samples = np.sum(self.labels == 1)
+
+        weight_for_healthy = (1 / healthy_samples) * (total_samples / 2.0)
+        weight_for_unhealthy = (1 / unhealthy_samples) * (total_samples / 2.0)
+
+        class_weights = {0: weight_for_healthy, 1: weight_for_unhealthy}
+
         # Compile the model
         self.model.compile(
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001), 
+            optimizer=tf.keras.optimizers.Adam(learning_rate=0.001), 
             loss=tf.keras.losses.SparseCategoricalCrossentropy(),
-            metrics=['accuracy']
+            metrics=['accuracy'],
         )
         
-        checkpoint_path = path + "LEVERINGSMAPPE/" + "training_1_SK_BRANN"
-        checkpointer = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path, verbose=1, save_best_only=True)
+        self.checkpoint_path = path + "LEVERINGSMAPPE/" + "training_1_SK_BRANN_CL_15_21"
+        checkpointer = tf.keras.callbacks.ModelCheckpoint(filepath=self.checkpoint_path, verbose=1, save_best_only=True)
 
         #early stopping
         early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, min_delta=1e-12, restore_best_weights=True)
@@ -185,7 +215,8 @@ class Model:
             validation_data=(self.test_images, self.test_labels),
             epochs=25,
             callbacks=callbacks,
-            verbose=1
+            verbose=1,
+            class_weight=class_weights
         )
 
 
@@ -256,15 +287,12 @@ class Model:
             predicted classes as 1-dimensional tensor of shape [BS]
         '''
         # Predict
-        self.model = tf.keras.models.load_model(self.modelpath)
+        self.model = tf.keras.models.load_model(self.checkpoint_path)
         predictions = self.model.predict(X)
         return tf.argmax(predictions, axis=1)
 
 if __name__ == "__main__":
     m = Model("../")
-    
-    """
-    
     m.make_model("../")
     result = m.predict(m.images)
     #print out the first 10 predictions
@@ -274,4 +302,3 @@ if __name__ == "__main__":
     #print out the accuracy
     print("Accuracy:")
     print(np.mean(result == m.labels), "% of " , len(m.labels), "correct")
-    """
