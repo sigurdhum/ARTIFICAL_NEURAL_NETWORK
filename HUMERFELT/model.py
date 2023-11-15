@@ -59,18 +59,21 @@ class Model:
         #Model should have 3 classes, healthy, unhealthy and unknown
         dataset = np.load(os.path.join(path, 'public_data.npz'), allow_pickle=True)
         self.images, self.labels = dataset['data'], dataset['labels']
+
+        
         
         unknownIDs_some = [58, 338]
 
 
         # See the distribution of the data in the dataset before and after deleting the unknowns
-        self.pie_chart_labels(self.labels)
+        #self.pie_chart_labels(self.labels)
         self.images, self.labels =self.delete_unwanted(self.images, self.labels, unknownIDs_some)
         #self.pie_chart_labels(self.labels)
 
-        self.labels = np.where(self.labels == 'healthy', 0, 1)
-        
+        #print number of unique images
         self.images, self.labels = self.uniques(self.images, self.labels)
+        
+        self.labels = np.where(self.labels == 'healthy', 0, 1)
         
         self.pie_chart_labels(self.labels)
 
@@ -79,18 +82,15 @@ class Model:
         self.train_images, self.test_images = self.images[:split_idx], self.images[split_idx:]
         self.train_labels, self.test_labels = self.labels[:split_idx], self.labels[split_idx:]
 
+        self.pie_chart_labels(self.train_labels)
+        self.pie_chart_labels(self.test_labels)
         self.make_model(path)
 
         #self.make_model(self, path)
+
     def uniques(self, images, labels):
-        unique_images, unique_indices = np.unique(images, axis=0, return_index=True)
+        unique_images, unique_indices = np.unique(images, return_index=True, axis=0)
         unique_labels = labels[unique_indices]
-        """
-        print("antall unike labels:", len(unique_labels))
-        print("antall unike bilder:", len(unique_images))
-        for i in range(len(unique_labels[:20])):
-            print(unique_labels[i])
-        """
         return unique_images, unique_labels
         
     def make_model(self, path):
@@ -167,7 +167,7 @@ class Model:
             metrics=['accuracy']
         )
         
-        checkpoint_path = path + "LEVERINGSMAPPE/" + "training_1"
+        checkpoint_path = path + "LEVERINGSMAPPE/" + "training_1_SK_BRANN"
         checkpointer = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path, verbose=1, save_best_only=True)
 
         #early stopping
@@ -179,18 +179,20 @@ class Model:
         #callbacks
         callbacks = [checkpointer, early_stopping, lr_reducer]
 
-        self.model.fit(x=self.train_images, y=self.train_labels, validation_data=(self.test_images, self.test_labels), epochs=25, callbacks=callbacks, verbose=1)
+        self.model.fit(
+            x=self.test_images,
+            y=self.test_labels,
+            validation_data=(self.test_images, self.test_labels),
+            epochs=25,
+            callbacks=callbacks,
+            verbose=1
+        )
 
 
         #self.model.fit(self.images, self.labels, epochs=25, verbose = 1)
 
         # Save the weights
         #self.model.save_weights('path_to_save_weights.h5')
-
-        #Save the model
-        self.model.save(path + "LEVERINGSMAPPE/" + 'modellenV4')
-        self.modelpath = path + "LEVERINGSMAPPE/" + 'modellenV4'
-
     
     def pie_chart_labels(self, labels):
         #pie chart
@@ -238,7 +240,6 @@ class Model:
                 labels = np.delete(labels, index, 0)
                 deleted += 1
         print("Deleted: ", deleted, "images")
-        images = np.unique(images)
 
         return images, labels
 
