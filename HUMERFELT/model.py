@@ -74,6 +74,9 @@ class Model:
         #print number of unique images
         self.images, self.labels = self.uniques(self.images, self.labels)
         
+        self.OG_images = self.images
+        self.OG_labels = self.labels
+
         self.labels = np.where(self.labels == 'healthy', 0, 1)
         
         #self.pie_chart_labels(self.labels)
@@ -101,9 +104,11 @@ class Model:
             if np.random.rand() > 0.5:
                 rotated_image = np.fliplr(rotated_image)
             
-            augmented_images.append(rotated_image)
-
+            # Resize the image to (96, 96, 3)
+            resized_image = tf.image.resize(rotated_image, (96, 96))
+            augmented_images.append(resized_image)
         return np.array(augmented_images)
+
 
     def uniques(self, images, labels):
         unique_images, unique_indices = np.unique(images, return_index=True, axis=0)
@@ -169,9 +174,6 @@ class Model:
             tf.keras.layers.Dense(128, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
             tf.keras.layers.Dropout(0.3),
 
-            #dense layer
-            tf.keras.layers.Dense(128, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
-            tf.keras.layers.Dropout(0.2),
 
             # Dense layer with 64 neurons and dropout
             tf.keras.layers.Dense(64, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
@@ -197,7 +199,7 @@ class Model:
             metrics=['accuracy'],
         )
         
-        self.checkpoint_path = path + "LEVERINGSMAPPE/" + "training_1_SK_BRANN_CL_15_21"
+        self.checkpoint_path = path + "LEVERINGSMAPPE/" + "augemented_model_more_layers"
         checkpointer = tf.keras.callbacks.ModelCheckpoint(filepath=self.checkpoint_path, verbose=1, save_best_only=True)
 
         #early stopping
@@ -210,8 +212,8 @@ class Model:
         callbacks = [checkpointer, early_stopping, lr_reducer]
 
         self.model.fit(
-            x=self.test_images,
-            y=self.test_labels,
+            x=self.train_images,
+            y=self.train_labels,
             validation_data=(self.test_images, self.test_labels),
             epochs=25,
             callbacks=callbacks,
