@@ -86,19 +86,25 @@ class Model:
         self.train_images, self.test_images = self.images[:split_idx], self.images[split_idx:]
         self.train_labels, self.test_labels = self.labels[:split_idx], self.labels[split_idx:]
 
-        self.train_images = self.apply_data_augmentation(self.train_images)
+        #self.train_images = self.apply_data_augmentation(self.train_images)
 
         #self.pie_chart_labels(self.train_labels)
         #self.pie_chart_labels(self.test_labels)
-        self.make_model(path)
+
+        self.epochs = 25
+
+        #iterate over the epochs and train the model on augmented data
+        for i in range(self.epochs):
+            self.make_model(path, i)
 
         #self.make_model(self, path)
     
-    def apply_data_augmentation(self, images):
+    def apply_data_augmentation(self, images, epoch):
         augmented_images = []
         for image in images:
-            # Random rotation (between -20 and 20 degrees)
-            rotated_image = ndimage.rotate(image, np.random.uniform(-20, 20), reshape=False)
+            # Random rotation (between -20 and 20 degrees) with epoch-dependent angle
+            rotation_angle = np.random.uniform(-20 + epoch, 20 + epoch)
+            rotated_image = ndimage.rotate(image, rotation_angle, reshape=False)
             
             # Random horizontal flip
             if np.random.rand() > 0.5:
@@ -110,13 +116,15 @@ class Model:
         return np.array(augmented_images)
 
 
+
     def uniques(self, images, labels):
         unique_images, unique_indices = np.unique(images, return_index=True, axis=0)
         unique_labels = labels[unique_indices]
         return unique_images, unique_labels
         
-    def make_model(self, path):
+    def make_model(self, path, i):
         self.model = tf.keras.Sequential([
+
             #first convolution
             tf.keras.layers.Conv2D(16, (3,3), activation='relu', input_shape=(96, 96, 3), padding='same'),
             #normalize the data
@@ -174,10 +182,29 @@ class Model:
             tf.keras.layers.Dense(128, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
             tf.keras.layers.Dropout(0.3),
 
+            tf.keras.layers.Dense(64, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
+            tf.keras.layers.Dropout(0.3),
 
             # Dense layer with 64 neurons and dropout
             tf.keras.layers.Dense(64, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
             tf.keras.layers.Dropout(0.3),
+
+            # Dense layer with 32 neurons and dropout
+            tf.keras.layers.Dense(32, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
+            tf.keras.layers.Dropout(0.3),
+
+            # Dense layer with 16 neurons and dropout
+            tf.keras.layers.Dense(16, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
+            tf.keras.layers.Dropout(0.3),
+
+            # Dense layer with 8 neurons and dropout
+            tf.keras.layers.Dense(8, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
+            tf.keras.layers.Dropout(0.3),
+
+            # Dense layer with 4 neurons and dropout
+            tf.keras.layers.Dense(4, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
+            tf.keras.layers.Dropout(0.3),
+
 
             #output layer
             tf.keras.layers.Dense(2, activation='softmax')
@@ -199,7 +226,7 @@ class Model:
             metrics=['accuracy'],
         )
         
-        self.checkpoint_path = path + "LEVERINGSMAPPE/" + "augemented_model_more_layers"
+        self.checkpoint_path = path + "LEVERINGSMAPPE/" + "epoch_augemented_modely"
         checkpointer = tf.keras.callbacks.ModelCheckpoint(filepath=self.checkpoint_path, verbose=1, save_best_only=True)
 
         #early stopping
@@ -212,10 +239,10 @@ class Model:
         callbacks = [checkpointer, early_stopping, lr_reducer]
 
         self.model.fit(
-            x=self.train_images,
+            x=self.apply_data_augmentation(self.train_images, i),
             y=self.train_labels,
             validation_data=(self.test_images, self.test_labels),
-            epochs=25,
+            epochs=1,
             callbacks=callbacks,
             verbose=1,
             class_weight=class_weights
