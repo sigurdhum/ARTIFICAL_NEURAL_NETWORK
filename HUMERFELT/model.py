@@ -86,11 +86,24 @@ class Model:
         self.train_images, self.test_images = self.images[:split_idx], self.images[split_idx:]
         self.train_labels, self.test_labels = self.labels[:split_idx], self.labels[split_idx:]
 
-        self.train_images = self.apply_data_augmentation(self.train_images)
+        #self.train_images = self.apply_data_augmentation(self.train_images)
 
         #self.pie_chart_labels(self.train_labels)
         #self.pie_chart_labels(self.test_labels)
+        self.datagen = tf.keras.preprocessing.image.ImageDataGenerator(
+            rotation_range=20,
+            width_shift_range=0.2,
+            height_shift_range=0.2,
+            shear_range=0.2,
+            zoom_range=0.2,
+            horizontal_flip=True,
+            fill_mode='nearest'
+        )
+        
+        
         self.make_model(path)
+
+
 
         #self.make_model(self, path)
     
@@ -183,6 +196,8 @@ class Model:
             tf.keras.layers.Dense(2, activation='softmax')
         ])
 
+        
+
         total_samples = len(self.labels)
         healthy_samples = np.sum(self.labels == 0)
         unhealthy_samples = np.sum(self.labels == 1)
@@ -192,6 +207,8 @@ class Model:
 
         class_weights = {0: weight_for_healthy, 1: weight_for_unhealthy}
 
+        
+
         # Compile the model
         self.model.compile(
             optimizer=tf.keras.optimizers.Adam(learning_rate=0.001), 
@@ -199,21 +216,23 @@ class Model:
             metrics=['accuracy'],
         )
         
-        self.checkpoint_path = path + "LEVERINGSMAPPE/" + "augemented_model_more_layers"
+        self.checkpoint_path = path + "LEVERINGSMAPPE/" + "augemented_datagen_model_val_accuracy"
         checkpointer = tf.keras.callbacks.ModelCheckpoint(filepath=self.checkpoint_path, verbose=1, save_best_only=True)
 
         #early stopping
-        early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, min_delta=1e-12, restore_best_weights=True)
+        early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', patience=3, min_delta=1e-12, restore_best_weights=True)
 
         #Lr reducer
-        lr_reducer = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=2, min_lr=1e-7, verbose=1)
+        lr_reducer = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_accuracy', factor=0.2, patience=2, min_lr=1e-7, verbose=1)
 
         #callbacks
         callbacks = [checkpointer, early_stopping, lr_reducer]
 
-        self.model.fit(
-            x=self.train_images,
-            y=self.train_labels,
+        batch_size = 32
+
+        self.model.fit_generator(
+            self.datagen.flow(self.train_images, self.train_labels, batch_size=batch_size),
+            steps_per_epoch=len(self.train_images) // batch_size,
             validation_data=(self.test_images, self.test_labels),
             epochs=25,
             callbacks=callbacks,
