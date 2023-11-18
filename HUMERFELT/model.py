@@ -216,14 +216,14 @@ class Model:
             metrics=['accuracy'],
         )
         
-        self.checkpoint_path = path + "LEVERINGSMAPPE/" + "augemented_datagen_model_val_accuracy"
+        self.checkpoint_path = path + "LEVERINGSMAPPE/" + "augemented_datagen_model"
         checkpointer = tf.keras.callbacks.ModelCheckpoint(filepath=self.checkpoint_path, verbose=1, save_best_only=True)
 
         #early stopping
-        early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', patience=3, min_delta=1e-12, restore_best_weights=True)
+        early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, min_delta=1e-12, restore_best_weights=True)
 
         #Lr reducer
-        lr_reducer = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_accuracy', factor=0.2, patience=2, min_lr=1e-7, verbose=1)
+        lr_reducer = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=2, min_lr=1e-7, verbose=1)
 
         #callbacks
         callbacks = [checkpointer, early_stopping, lr_reducer]
