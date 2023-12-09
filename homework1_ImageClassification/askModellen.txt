@@ -1,0 +1,61 @@
+0 = unhealthy
+1 = healthy
+
+
+Ask:
+0 feil
+1 
+1
+0
+0
+1
+1 feil
+1
+1
+0 feil
+0 feil
+1 
+0 feil
+1 feil
+0 
+1 
+0
+0 feil
+1 
+1 feil
+0 feil
+1 
+0 feil
+0 
+1
+tot: 15/25
+
+Fagerholt:
+0 feil
+1 
+0 feil
+0
+0
+1
+0
+1
+1
+1
+0 feil
+1 
+0 feil
+0
+0
+1
+0
+0 feil
+1 
+0 
+0 feil
+1 
+0 feil
+0
+0 feil
+tot: 17/25
+
+
