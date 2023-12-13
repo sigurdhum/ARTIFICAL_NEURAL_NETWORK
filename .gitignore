@@ -1,6 +1,9 @@
 *.zip
+.npy
+*.npy
 
 */SubmissionModel/*
 *.npz
 ToySubmission/modellen/*
 LEVERINGSMAPPE/*
+
